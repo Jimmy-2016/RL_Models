@@ -1,33 +1,30 @@
 import gym
 
-# Create the CartPole-v1 environment
+# Create the CartPole environment
 env = gym.make('CartPole-v1')
 
-# Number of episodes to run
-num_episodes = 10
-
-for episode in range(num_episodes):
-    state = env.reset()
-    done = False
+# Run the simulation for a few episodes
+for episode in range(3):  # Run for 3 episodes
     total_reward = 0
-
+    done = False
+    state = env.reset()  # Reset the environment to get initial state
     while not done:
-        # Render the environment
+        # Render the environment (optional, can be commented out)
         env.render()
 
         # Take a random action
         action = env.action_space.sample()
 
-        # Perform the action and get the next state, reward, and done flag
-        next_state, reward, done, _ = env.step(action)
+        # Perform the action and observe the next state, reward, and whether the episode is done
+        next_state, reward, done, info, _ = env.step(action)
 
-        # Accumulate the total reward
+        # Accumulate total reward
         total_reward += reward
 
         # Update the current state
         state = next_state
 
-    print(f"Episode {episode + 1}: Total Reward: {total_reward}")
+    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
 
 # Close the environment
 env.close()
