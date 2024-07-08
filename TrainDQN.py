@@ -1,6 +1,5 @@
 
 from utils import *
-from DQN import *
 
 # BATCH_SIZE is the number of transitions sampled from the replay buffer
 # GAMMA is the discount factor as mentioned in the previous section
