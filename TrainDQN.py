@@ -50,6 +50,8 @@ def select_action(state):
 
 
 episode_durations = []
+cart_pos = []
+cart_velocity = []
 
 
 def plot_durations(show_result=False):
@@ -77,6 +79,33 @@ def plot_durations(show_result=False):
         else:
             display.display(plt.gcf())
 
+
+def plot_pos(show_result=False):
+    plt.figure(2)
+    pos = torch.tensor(cart_pos, dtype=torch.float)
+    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+
+    if show_result:
+        plt.title('Result')
+    else:
+        plt.clf()
+        plt.title('Training...')
+    plt.xlabel('Episode')
+    plt.ylabel('Velocity')
+    plt.plot(pos.numpy())
+    # Take 100 episode averages and plot them too
+    if len(durations_t) >= 100:
+        means = pos.unfold(0, 100, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(99), means))
+        plt.plot(means.numpy())
+
+    plt.pause(0.001)  # pause a bit so that plots are updated
+    if is_ipython:
+        if not show_result:
+            display.display(plt.gcf())
+            display.clear_output(wait=True)
+        else:
+            display.display(plt.gcf())
 
 
 def optimize_model():
@@ -165,7 +194,9 @@ for i_episode in range(num_episodes):
 
         if done:
             episode_durations.append(t + 1)
+            cart_pos.append(observation[2])
             plot_durations()
+            plot_pos()
             break
 
 print('Complete')
