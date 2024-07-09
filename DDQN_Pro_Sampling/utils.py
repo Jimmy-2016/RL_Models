@@ -2,6 +2,7 @@
 import gym
 import torch
 import torch.nn as nn
+import numpy as np
 
 import gymnasium as gym
 import math
@@ -63,8 +64,8 @@ device = torch.device(
 # env.close()
 
 
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+# Transition = namedtuple('Transition',
+#                         ('state', 'action', 'next_state', 'reward'))
 
 
 class PrioritizedReplayMemory:
@@ -111,6 +112,9 @@ class PrioritizedReplayMemory:
 
     def _get_index_to_replace(self):
         return len(self.memory) - 1 if len(self.memory) < self.capacity else random.randint(0, self.capacity - 1)
+
+
+
 
 
 class DQN(nn.Module):

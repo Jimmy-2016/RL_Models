@@ -1,3 +1,4 @@
+import torch
 
 from utils import *
 
@@ -31,6 +32,10 @@ memory = PrioritizedReplayMemory(10000)
 
 
 steps_done = 0
+
+
+def store_transition(state, action, reward, next_state, done):
+    memory.add((state, action, reward, next_state, done), 1.0)
 
 
 def select_action(state):
@@ -136,24 +141,56 @@ def plot_return(show_result=False):
             display.display(plt.gcf())
 
 
+
+def plot_loss(show_result=False):
+    plt.figure(4)
+    pos = torch.tensor(model_loss, dtype=torch.float)
+    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+
+    if show_result:
+        plt.title('Result')
+    else:
+        plt.clf()
+        plt.title('Training...')
+    plt.xlabel('Episode')
+    plt.ylabel('loss')
+    plt.plot(pos.numpy())
+    # Take 100 episode averages and plot them too
+    if len(durations_t) >= 100:
+        means = pos.unfold(0, 100, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(99), means))
+        plt.plot(means.numpy())
+
+    plt.pause(0.001)  # pause a bit so that plots are updated
+    if is_ipython:
+        if not show_result:
+            display.display(plt.gcf())
+            display.clear_output(wait=True)
+        else:
+            display.display(plt.gcf())
+
+
+
+
 def optimize_model():
     if len(memory) < BATCH_SIZE:
-        return
-    transitions = memory.sample(BATCH_SIZE)
+        return torch.tensor(0)
+    indices, batch, weights = memory.sample(BATCH_SIZE)
+
+    # transitions = memory.sample(BATCH_SIZE)
     # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
     # detailed explanation). This converts batch-array of Transitions
     # to Transition of batch-arrays.
-    batch = Transition(*zip(*transitions))
-
+    states, actions, rewards, next_states, dones = zip(*batch)
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
-    non_final_next_states = torch.cat([s for s in batch.next_state
+                                          next_states)), device=device, dtype=torch.bool)
+    non_final_next_states = torch.cat([s for s in next_states
                                                 if s is not None])
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    state_batch = torch.cat(states)
+    action_batch = torch.cat(actions)
+    reward_batch = torch.cat(rewards)
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
@@ -168,8 +205,18 @@ def optimize_model():
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     # Compute Huber loss
-    criterion = nn.SmoothL1Loss()
-    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+
+    td_errors = (state_action_values.squeeze(1) - expected_state_action_values).detach().cpu().numpy()
+
+    memory.update_priorities(indices, np.abs(td_errors) + 1e-5)
+
+    # Compute the loss
+    loss = torch.mean(weights * F.mse_loss(state_action_values.squeeze(1), expected_state_action_values.detach(), reduction='none'))
+
+
+
+    # criterion = nn.SmoothL1Loss()
+    # loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
     # Optimize the model
     optimizer.zero_grad()
@@ -177,6 +224,7 @@ def optimize_model():
     # In-place gradient clipping
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
+    return loss
 
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
@@ -184,6 +232,8 @@ if torch.cuda.is_available() or torch.backends.mps.is_available():
 else:
     num_episodes = 500
 
+
+model_loss = []
 for i_episode in range(num_episodes):
     # Initialize the environment and get its state
     state, info = env.reset()
@@ -198,15 +248,16 @@ for i_episode in range(num_episodes):
             next_state = None
         else:
             next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+            store_transition(state, action, reward, next_state, terminated)
 
         # Store the transition in memory
-        memory.push(state, action, next_state, reward)
+        # memory.push(state, action, next_state, reward)
 
         # Move to the next state
         state = next_state
 
         # Perform one step of the optimization (on the policy network)
-        optimize_model()
+        loss = optimize_model()
 
         # Soft update of the target network's weights
         # θ′ ← τ θ + (1 −τ )θ′
@@ -220,9 +271,11 @@ for i_episode in range(num_episodes):
             episode_durations.append(t + 1)
             cart_pos.append(observation[2])
             tmp_return.append(reward)
+            model_loss.append(loss.item())
             plot_durations()
             plot_pos()
-            plot_return()
+            # plot_return()
+            plot_loss()
             break
 
 print('Complete')
