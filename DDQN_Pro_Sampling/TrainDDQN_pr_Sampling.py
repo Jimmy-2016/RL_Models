@@ -208,7 +208,7 @@ def optimize_model():
 
     td_errors = (state_action_values.squeeze(1) - expected_state_action_values).detach().cpu().numpy()
 
-    memory.update_priorities(indices, np.abs(td_errors) + 1e-5)
+    memory.update_priorities(indices, np.abs(td_errors))
 
     # Compute the loss
     loss = torch.mean(weights * F.mse_loss(state_action_values.squeeze(1), expected_state_action_values.detach(), reduction='none'))

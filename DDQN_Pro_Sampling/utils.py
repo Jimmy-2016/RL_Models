@@ -69,7 +69,7 @@ device = torch.device(
 
 
 class PrioritizedReplayMemory:
-    def __init__(self, capacity, alpha=0.6, beta_start=0.4, beta_end=1.0, beta_decay=0.999, epsilon=1e-5):
+    def __init__(self, capacity, alpha=0.9, beta_start=0.1, beta_end=1.0, beta_decay=0.999, epsilon=1e-5):
         self.capacity = capacity
         self.alpha = alpha
         self.beta = beta_start
@@ -112,8 +112,6 @@ class PrioritizedReplayMemory:
 
     def _get_index_to_replace(self):
         return len(self.memory) - 1 if len(self.memory) < self.capacity else random.randint(0, self.capacity - 1)
-
-
 
 
 
