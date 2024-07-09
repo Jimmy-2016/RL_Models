@@ -158,17 +158,13 @@ def optimize_model():
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    state_action_values = policy_net(state_batch).gather(1, action_batch)
 
-    # Compute V(s_{t+1}) for all next states.
-    # Expected values of actions for non_final_next_states are computed based
-    # on the "older" target_net; selecting their best reward with max(1).values
-    # This is merged based on the mask, such that we'll have either the expected
-    # state value or 0 in case the state was final.
+    state_action_values = policy_net(state_batch).gather(1, action_batch)
+    next_actions = policy_net(non_final_next_states).argmax(dim=1, keepdim=True)
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
     with torch.no_grad():
-        next_state_values[non_final_mask] = target_net(non_final_next_states).max(1).values
-    # Compute the expected Q values
+        next_state_values[non_final_mask] = target_net(non_final_next_states).gather(1, next_actions).squeeze(1)
+
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     # Compute Huber loss
